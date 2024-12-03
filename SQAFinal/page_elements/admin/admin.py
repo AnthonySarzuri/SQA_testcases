@@ -15,9 +15,8 @@ def login(driver, email, password):
 
 def check_login_success(driver):
 
-    time.sleep(2)  # Espera a que se procese el login
+    time.sleep(2)
     try:
-        # Verifica si hay un elemento que indica un inicio de sesión exitoso
         welcome_element = driver.find_element(By.XPATH, "//h2[contains(text(), 'Bienvenido')]")
         if welcome_element:
             print("Login exitoso, navegando a la página de bienvenida...")
