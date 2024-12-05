@@ -1,65 +1,61 @@
+import pytest
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 import time
 
-def setup_driver():
-    """Configura el WebDriver y maximiza la ventana del navegador."""
-    driver = webdriver.Chrome()
-    driver.maximize_window()
-    return driver
+class TestLoginValidation:
+    @pytest.fixture(autouse=True)
+    def setup_and_teardown(self):
+        chrome_service = Service(ChromeDriverManager().install())
+        chrome_options = Options()
+        chrome_options.add_argument("--start-maximized")
+        self.driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
+        self.driver.get('http://localhost:3000')
+        yield
+        self.driver.quit()
+        print("Prueba finalizada correctamente.")
 
-def login(driver, email, password):
-    """Realiza el login en la aplicación."""
-    driver.get('http://localhost:3000')
-    driver.find_element(By.XPATH, "//div[@class='relative']//input[@type='email']").send_keys(email)
-    driver.find_element(By.XPATH, "//div[@class='relative']//input[@type='password']").send_keys(password)
-    driver.find_element(By.XPATH, "//button[@type='submit']").click()
+    def login(self, email, password):
+        self.driver.find_element(By.XPATH, "//div[@class='relative']//input[@type='email']").send_keys(email)
+        self.driver.find_element(By.XPATH, "//div[@class='relative']//input[@type='password']").send_keys(password)
+        self.driver.find_element(By.XPATH, "//button[@type='submit']").click()
+        time.sleep(2)
 
-def check_login_success(driver):
-    """Verifica si el login fue exitoso y navega a la página de bienvenida."""
-    time.sleep(2)  # Espera a que se procese el login
-    try:
-        # Verifica si hay un elemento que indica un inicio de sesión exitoso
-        welcome_element = driver.find_element(By.XPATH, "//h2[contains(text(), 'Bienvenido')]")
-        if welcome_element:
-            print("Login exitoso, navegando a la página de bienvenida...")
-            driver.get('http://localhost:3000/welcome')
-    except Exception:
-        print("Login fallido, credenciales no válidas.")
-
-def validate_locators(driver):
-    """Valida si los locators están presentes en la página."""
-    locators = [
-        "//a[@href='/pacientes']",
-        "//a[@href='/terapeutas']",
-        "//a[@href='/internos']"
-    ]
-    missing_locators = []
-
-    for locator in locators:
+    def check_login_success(self):
+        time.sleep(2)
         try:
-            driver.find_element(By.XPATH, locator)
-            print(f"Elemento con locator '{locator}' está presente en la página.")
+            self.driver.find_element(By.XPATH, "//h2[contains(text(), 'Bienvenido')]")
+            self.driver.get('http://localhost:3000/welcome')
+            return "Login exitoso"
         except Exception:
-            missing_locators.append(locator)
+            return "Login fallido"
 
-    if missing_locators:
-        error_message = f"No se encontraron los siguientes locators: {', '.join(missing_locators)}. El usuario no es un administrador."
-        raise Exception(error_message)
+    def validate_locators(self):
+        locators = [
+            "//a[@href='/pacientes']",
+            "//a[@href='/terapeutas']",
+            "//a[@href='/internos']"
+        ]
+        missing_locators = []
+        for locator in locators:
+            try:
+                self.driver.find_element(By.XPATH, locator)
+                print(f"Elemento con locator '{locator}' está presente en la página.")
+            except Exception:
+                missing_locators.append(locator)
 
-def main():
-    driver = setup_driver()
+        if missing_locators:
+            return f"No se encontraron los siguientes locators: {', '.join(missing_locators)}. El usuario no es un administrador."
+        return "Todos los locators están presentes."
 
-    try:
-        login(driver, "can@gmail.com", "72005945CA")
-        check_login_success(driver)
-        validate_locators(driver)
-    except Exception as e:
-        print(f"Error: {e}")
-    finally:
-        time.sleep(5)
-        driver.quit()
-        print("Prueba visual completada")
+    def test_validate_login_and_locators(self):
+        self.login("can@gmail.com", "72005945CA")
+        actual_login = self.check_login_success()
+        assert actual_login == "Login exitoso", f"FALLÓ: Se esperaba 'Login exitoso', pero se obtuvo '{actual_login}'"
 
-if __name__ == "__main__":
-    main()
+        locators_result = self.validate_locators()
+        expected_message = "Todos los locators están presentes."
+        assert locators_result == expected_message, f"FALLÓ: Se esperaba '{expected_message}', pero se obtuvo '{locators_result}'"
